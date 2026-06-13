@@ -1,0 +1,257 @@
+--======================================================================
+--                   KahoXHub - MM2 MASTER SCRIPT (FIXED)
+--======================================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+--// SEÇENEKLER //--
+local EspActive = false
+local NoclipActive = false
+local SpeedActive = false
+local JumpActive = false
+
+local FlingKillerActive = false
+local FlingSheriffActive = false
+local FlingAllActive = false
+
+local InitialSheriff = nil
+local OriginalCFrame = nil
+local IsFlinging = false
+
+--// ROL TESPİT MOTORU //--
+local function GetPlayerRole(player)
+    if not player or not player.Character then return "Innocent" end
+    if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") then
+        return "Murderer"
+    end
+    if player.Backpack:FindFirstChild("Gun") or player.Character:FindFirstChild("Gun") then
+        if InitialSheriff == nil then InitialSheriff = player end
+        if player == InitialSheriff then return "Sheriff" else return "Hero" end
+    end
+    return "Innocent"
+end
+
+Workspace.DescendantRemoving:Connect(function(descendant)
+    if descendant.Name == "GunDrop" then InitialSheriff = nil end
+end)
+
+--// GUI TASARIMI //--
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KahoXHub_MM2"
+ScreenGui.ResetOnSpawn = false
+
+local success = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -140)
+MainFrame.Size = UDim2.new(0, 400, 0, 280)
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local Stroke = Instance.new("UIStroke", MainFrame)
+Stroke.Thickness = 2.5
+Stroke.Color = Color3.fromRGB(0, 255, 255)
+
+local Sidebar = Instance.new("Frame", MainFrame)
+Sidebar.Size = UDim2.new(0, 100, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(0, 280, 0, 25)
+Title.Position = UDim2.new(0, 110, 0, 10)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBlack
+Title.Text = "KahoXHub"
+Title.TextColor3 = Color3.fromRGB(0, 255, 255)
+Title.TextSize = 22
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local SubTitle = Instance.new("TextLabel", MainFrame)
+SubTitle.Size = UDim2.new(0, 280, 0, 15)
+SubTitle.Position = UDim2.new(0, 110, 0, 32)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Font = Enum.Font.GothamBold
+SubTitle.Text = "MM2 SCRIPT"
+SubTitle.TextColor3 = Color3.fromRGB(255, 0, 150)
+SubTitle.TextSize = 12
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local ContainerESP = Instance.new("Frame", MainFrame)
+ContainerESP.Size = UDim2.new(0, 280, 0, 200)
+ContainerESP.Position = UDim2.new(0, 110, 0, 65)
+ContainerESP.BackgroundTransparency = 1
+
+local ContainerFling = Instance.new("Frame", MainFrame)
+ContainerFling.Size = UDim2.new(0, 280, 0, 200)
+ContainerFling.Position = UDim2.new(0, 110, 0, 65)
+ContainerFling.BackgroundTransparency = 1
+ContainerFling.Visible = false
+
+local ContainerChar = Instance.new("Frame", MainFrame)
+ContainerChar.Size = UDim2.new(0, 280, 0, 200)
+ContainerChar.Position = UDim2.new(0, 110, 0, 65)
+ContainerChar.BackgroundTransparency = 1
+ContainerChar.Visible = false
+
+local function SwitchTab(tabName)
+    ContainerESP.Visible = (tabName == "ESP")
+    ContainerFling.Visible = (tabName == "FLING")
+    ContainerChar.Visible = (tabName == "CHAR")
+end
+
+local function CreateTabBtn(name, pos, targetTab)
+    local btn = Instance.new("TextButton", Sidebar)
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.Position = UDim2.new(0.05, 0, 0, pos)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextSize = 13
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.MouseButton1Click:Connect(function() SwitchTab(targetTab) end)
+end
+
+CreateTabBtn("ESP", 65, "ESP")
+CreateTabBtn("FLING", 110, "FLING")
+CreateTabBtn("CHARACTER", 155, "CHAR")
+
+local function CreateToggle(parent, text, pos, callback)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.Position = UDim2.new(0, 0, 0, pos)
+    btn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text .. ": OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            btn.BackgroundColor3 = Color3.fromRGB(40, 200, 40)
+            btn.Text = text .. ": ON"
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+            btn.Text = text .. ": OFF"
+        end
+        callback(state)
+    end)
+end
+
+--// SEKME 1: ESP //--
+CreateToggle(ContainerESP, "PLAYER & GUN ESP", 10, function(val) EspActive = val end)
+RunService.RenderStepped:Connect(function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local highlight = p.Character:FindFirstChild("KahoX_Highlight")
+            if EspActive then
+                if not highlight then
+                    highlight = Instance.new("Highlight", p.Character)
+                    highlight.Name = "KahoX_Highlight"
+                    highlight.FillTransparency = 0.4
+                end
+                local role = GetPlayerRole(p)
+                if role == "Murderer" then highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                elseif role == "Sheriff" then highlight.FillColor = Color3.fromRGB(0, 100, 255)
+                elseif role == "Hero" then highlight.FillColor = Color3.fromRGB(255, 255, 0)
+                else highlight.FillColor = Color3.fromRGB(0, 255, 0) end
+            elseif highlight then highlight:Destroy() end
+        end
+    end
+    local gunDrop = Workspace:FindFirstChild("GunDrop")
+    local visualSphere = Workspace:FindFirstChild("KahoX_GunSphere")
+    if EspActive and gunDrop then
+        if not visualSphere then
+            visualSphere = Instance.new("Part", Workspace)
+            visualSphere.Name = "KahoX_GunSphere"
+            visualSphere.Shape = Enum.PartType.Ball
+            visualSphere.Size = Vector3.new(5, 5, 5)
+            visualSphere.Color = Color3.fromRGB(0, 150, 255)
+            visualSphere.Transparency = 0.6
+            visualSphere.Anchored = true
+            visualSphere.CanCollide = false
+        end
+        visualSphere.CFrame = gunDrop:GetPivot()
+    elseif visualSphere then visualSphere:Destroy() end
+end)
+
+--// SEKME 2: FLING //--
+CreateToggle(ContainerFling, "LOOP FLING KILLER", 10, function(val) FlingKillerActive = val end)
+CreateToggle(ContainerFling, "LOOP FLING SHERIFF", 60, function(val) FlingSheriffActive = val end)
+CreateToggle(ContainerFling, "LOOP FLING ALL", 110, function(val) FlingAllActive = val end)
+
+RunService.Stepped:Connect(function()
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+    local myHrp = myChar.HumanoidRootPart
+    local target = nil
+    if FlingKillerActive then
+        for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and GetPlayerRole(p) == "Murderer" then target = p.Character break end end
+    elseif FlingSheriffActive then
+        for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and (GetPlayerRole(p) == "Sheriff" or GetPlayerRole(p) == "Hero") then target = p.Character break end end
+    elseif FlingAllActive then
+        for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then target = p.Character break end end
+    end
+    if target and target:FindFirstChild("HumanoidRootPart") then
+        if not IsFlinging then OriginalCFrame = myHrp.CFrame IsFlinging = true end
+        for _, part in pairs(myChar:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
+        myHrp.CFrame = target.HumanoidRootPart.CFrame
+        myHrp.RotVelocity = Vector3.new(0, 50000, 0)
+        myHrp.Velocity = Vector3.new(0, 0, 0)
+    elseif IsFlinging then
+        IsFlinging = false
+        task.wait(0.05)
+        if OriginalCFrame and myHrp then myHrp.CFrame = OriginalCFrame end
+    end
+end)
+
+--// SEKME 3: CHARACTER (NOCLIP FIX) //--
+CreateToggle(ContainerChar, "NOCLIP", 10, function(val)
+    NoclipActive = val
+    -- DÜZELTME: Noclip kapatıldığında çarpışmaları geri aç
+    if not val and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+    end
+end)
+CreateToggle(ContainerChar, "2X WALK SPEED", 60, function(val) SpeedActive = val end)
+CreateToggle(ContainerChar, "2X JUMP POWER", 110, function(val) JumpActive = val end)
+
+RunService.Stepped:Connect(function()
+    if NoclipActive and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if SpeedActive then hum.WalkSpeed = 32 else if hum.WalkSpeed == 32 then hum.WalkSpeed = 16 end end
+        if JumpActive then hum.UseJumpPower = true hum.JumpPower = 100 else if hum.JumpPower == 100 then hum.JumpPower = 50 end end
+    end
+end)
+
+local DestroyGuiBtn = Instance.new("TextButton", MainFrame)
+DestroyGuiBtn.Size = UDim2.new(0, 20, 0, 20)
+DestroyGuiBtn.Position = UDim2.new(1, -25, 0, 5)
+DestroyGuiBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+DestroyGuiBtn.Text = "X"
+DestroyGuiBtn.Font = Enum.Font.GothamBold
+DestroyGuiBtn.TextColor3 = Color3.fromRGB(255, 0, 0)
+DestroyGuiBtn.TextSize = 12
+Instance.new("UICorner", DestroyGuiBtn)
+DestroyGuiBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
