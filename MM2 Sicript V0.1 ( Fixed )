@@ -1,5 +1,5 @@
 --======================================================================
---                   KahoXHub - MM2 MASTER SCRIPT (FIXED)
+--            KahoXHub - MM2 MASTER SCRIPT (V2 GÜNCEL SÜRÜM - FIX)
 --======================================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,13 +7,13 @@ local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
---// SEÇENEKLER //--
+--// SEÇENEKLER VE KONTROLLER //--
 local EspActive = false
 local NoclipActive = false
 local SpeedActive = false
 local JumpActive = false
+local KillauraActive = false
 
 local FlingKillerActive = false
 local FlingSheriffActive = false
@@ -22,8 +22,10 @@ local FlingAllActive = false
 local InitialSheriff = nil
 local OriginalCFrame = nil
 local IsFlinging = false
+local SelectedTpPlayer = nil
+local killAuraDebounce = false
 
---// ROL TESPİT MOTORU //--
+--// 1. ROL TESPİT MOTORU //--
 local function GetPlayerRole(player)
     if not player or not player.Character then return "Innocent" end
     if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") then
@@ -40,18 +42,19 @@ Workspace.DescendantRemoving:Connect(function(descendant)
     if descendant.Name == "GunDrop" then InitialSheriff = nil end
 end)
 
---// GUI TASARIMI //--
+--// 2. GELİŞMİŞ VE GENİŞLETİLMİŞ GUI TASARIMI //--
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KahoXHub_MM2"
+ScreenGui.Name = "KahoXHub_MM2_V2"
 ScreenGui.ResetOnSpawn = false
 
 local success = pcall(function() ScreenGui.Parent = CoreGui end)
 if not success then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
+-- Ana Panel
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MainFrame.Position = UDim2.new(0.5, -200, 0.5, -140)
-MainFrame.Size = UDim2.new(0, 400, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -160)
+MainFrame.Size = UDim2.new(0, 450, 0, 320)
 MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
@@ -60,14 +63,16 @@ local Stroke = Instance.new("UIStroke", MainFrame)
 Stroke.Thickness = 2.5
 Stroke.Color = Color3.fromRGB(0, 255, 255)
 
+-- Sol Menü Çubuğu (Sidebar)
 local Sidebar = Instance.new("Frame", MainFrame)
-Sidebar.Size = UDim2.new(0, 100, 1, 0)
+Sidebar.Size = UDim2.new(0, 110, 1, 0)
 Sidebar.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
 Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
+-- Başlıklar
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(0, 280, 0, 25)
-Title.Position = UDim2.new(0, 110, 0, 10)
+Title.Size = UDim2.new(0, 320, 0, 25)
+Title.Position = UDim2.new(0, 125, 0, 10)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBlack
 Title.Text = "KahoXHub"
@@ -76,36 +81,45 @@ Title.TextSize = 22
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local SubTitle = Instance.new("TextLabel", MainFrame)
-SubTitle.Size = UDim2.new(0, 280, 0, 15)
-SubTitle.Position = UDim2.new(0, 110, 0, 32)
+SubTitle.Size = UDim2.new(0, 320, 0, 15)
+SubTitle.Position = UDim2.new(0, 125, 0, 32)
 SubTitle.BackgroundTransparency = 1
 SubTitle.Font = Enum.Font.GothamBold
-SubTitle.Text = "MM2 SCRIPT"
+SubTitle.Text = "MM2 SCRIPT - V2"
 SubTitle.TextColor3 = Color3.fromRGB(255, 0, 150)
 SubTitle.TextSize = 12
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Konteynerlar
 local ContainerESP = Instance.new("Frame", MainFrame)
-ContainerESP.Size = UDim2.new(0, 280, 0, 200)
-ContainerESP.Position = UDim2.new(0, 110, 0, 65)
+ContainerESP.Size = UDim2.new(0, 320, 0, 240)
+ContainerESP.Position = UDim2.new(0, 125, 0, 65)
 ContainerESP.BackgroundTransparency = 1
 
 local ContainerFling = Instance.new("Frame", MainFrame)
-ContainerFling.Size = UDim2.new(0, 280, 0, 200)
-ContainerFling.Position = UDim2.new(0, 110, 0, 65)
+ContainerFling.Size = UDim2.new(0, 320, 0, 240)
+ContainerFling.Position = UDim2.new(0, 125, 0, 65)
 ContainerFling.BackgroundTransparency = 1
 ContainerFling.Visible = false
 
 local ContainerChar = Instance.new("Frame", MainFrame)
-ContainerChar.Size = UDim2.new(0, 280, 0, 200)
-ContainerChar.Position = UDim2.new(0, 110, 0, 65)
+ContainerChar.Size = UDim2.new(0, 320, 0, 240)
+ContainerChar.Position = UDim2.new(0, 125, 0, 65)
 ContainerChar.BackgroundTransparency = 1
 ContainerChar.Visible = false
 
+local ContainerTP = Instance.new("Frame", MainFrame)
+ContainerTP.Size = UDim2.new(0, 320, 0, 240)
+ContainerTP.Position = UDim2.new(0, 125, 0, 65)
+ContainerTP.BackgroundTransparency = 1
+ContainerTP.Visible = false
+
+-- Sekme Değiştirici
 local function SwitchTab(tabName)
     ContainerESP.Visible = (tabName == "ESP")
     ContainerFling.Visible = (tabName == "FLING")
     ContainerChar.Visible = (tabName == "CHAR")
+    ContainerTP.Visible = (tabName == "TP")
 end
 
 local function CreateTabBtn(name, pos, targetTab)
@@ -116,24 +130,25 @@ local function CreateTabBtn(name, pos, targetTab)
     btn.Font = Enum.Font.GothamBold
     btn.Text = name
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    btn.TextSize = 13
+    btn.TextSize = 12
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     btn.MouseButton1Click:Connect(function() SwitchTab(targetTab) end)
 end
 
-CreateTabBtn("ESP", 65, "ESP")
-CreateTabBtn("FLING", 110, "FLING")
-CreateTabBtn("CHARACTER", 155, "CHAR")
+CreateTabBtn("ESP", 60, "ESP")
+CreateTabBtn("FLING", 105, "FLING")
+CreateTabBtn("CHARACTER", 150, "CHAR")
+CreateTabBtn("TELEPORT", 195, "TP")
 
 local function CreateToggle(parent, text, pos, callback)
     local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.Size = UDim2.new(0.95, 0, 0, 38)
     btn.Position = UDim2.new(0, 0, 0, pos)
     btn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
     btn.Font = Enum.Font.GothamBold
     btn.Text = text .. ": OFF"
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 14
+    btn.TextSize = 13
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
     
     local state = false
@@ -152,6 +167,7 @@ end
 
 --// SEKME 1: ESP //--
 CreateToggle(ContainerESP, "PLAYER & GUN ESP", 10, function(val) EspActive = val end)
+
 RunService.RenderStepped:Connect(function()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
@@ -182,6 +198,7 @@ RunService.RenderStepped:Connect(function()
             visualSphere.Transparency = 0.6
             visualSphere.Anchored = true
             visualSphere.CanCollide = false
+            visualSphere.Material = Enum.Material.Neon
         end
         visualSphere.CFrame = gunDrop:GetPivot()
     elseif visualSphere then visualSphere:Destroy() end
@@ -189,8 +206,8 @@ end)
 
 --// SEKME 2: FLING //--
 CreateToggle(ContainerFling, "LOOP FLING KILLER", 10, function(val) FlingKillerActive = val end)
-CreateToggle(ContainerFling, "LOOP FLING SHERIFF", 60, function(val) FlingSheriffActive = val end)
-CreateToggle(ContainerFling, "LOOP FLING ALL", 110, function(val) FlingAllActive = val end)
+CreateToggle(ContainerFling, "LOOP FLING SHERIFF", 55, function(val) FlingSheriffActive = val end)
+CreateToggle(ContainerFling, "LOOP FLING ALL", 100, function(val) FlingAllActive = val end)
 
 RunService.Stepped:Connect(function()
     local myChar = LocalPlayer.Character
@@ -217,18 +234,42 @@ RunService.Stepped:Connect(function()
     end
 end)
 
---// SEKME 3: CHARACTER (NOCLIP FIX) //--
+--// SEKME 3: CHARACTER //--
 CreateToggle(ContainerChar, "NOCLIP", 10, function(val)
     NoclipActive = val
-    -- DÜZELTME: Noclip kapatıldığında çarpışmaları geri aç
     if not val and LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = true end end
+    end
+end)
+CreateToggle(ContainerChar, "2X WALK SPEED", 55, function(val) SpeedActive = val end)
+CreateToggle(ContainerChar, "2X JUMP POWER", 100, function(val) JumpActive = val end)
+CreateToggle(ContainerChar, "MURDERER KILLAURA", 145, function(val) KillauraActive = val end)
+
+RunService.Heartbeat:Connect(function()
+    if KillauraActive and not killAuraDebounce and LocalPlayer.Character then
+        local knife = LocalPlayer.Character:FindFirstChild("Knife") or LocalPlayer.Backpack:FindFirstChild("Knife")
+        if knife then
+            killAuraDebounce = true
+            if knife.Parent == LocalPlayer.Backpack then knife.Parent = LocalPlayer.Character end
+            local handle = knife:FindFirstChild("Handle")
+            if handle then
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                            if firetouchinterest then
+                                firetouchinterest(p.Character.HumanoidRootPart, handle, 0)
+                                firetouchinterest(p.Character.HumanoidRootPart, handle, 1)
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.1)
+            killAuraDebounce = false
         end
     end
 end)
-CreateToggle(ContainerChar, "2X WALK SPEED", 60, function(val) SpeedActive = val end)
-CreateToggle(ContainerChar, "2X JUMP POWER", 110, function(val) JumpActive = val end)
 
 RunService.Stepped:Connect(function()
     if NoclipActive and LocalPlayer.Character then
@@ -242,6 +283,134 @@ RunService.Heartbeat:Connect(function()
         local hum = char:FindFirstChildOfClass("Humanoid")
         if SpeedActive then hum.WalkSpeed = 32 else if hum.WalkSpeed == 32 then hum.WalkSpeed = 16 end end
         if JumpActive then hum.UseJumpPower = true hum.JumpPower = 100 else if hum.JumpPower == 100 then hum.JumpPower = 50 end end
+    end
+end)
+
+--// SEKME 4: TELEPORT SİSTEMİ //--
+local TpScroll = Instance.new("ScrollingFrame", ContainerTP)
+TpScroll.Size = UDim2.new(0, 140, 0, 200)
+TpScroll.Position = UDim2.new(0, 0, 0, 10)
+TpScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+TpScroll.ScrollBarThickness = 5
+TpScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 255)
+Instance.new("UICorner", TpScroll).CornerRadius = UDim.new(0, 6)
+
+local TpListLayout = Instance.new("UIListLayout", TpScroll)
+TpListLayout.SortOrder = Enum.SortOrder.Name
+TpListLayout.Padding = UDim.new(0, 4)
+
+local TpSelLabel = Instance.new("TextLabel", ContainerTP)
+TpSelLabel.Size = UDim2.new(0, 160, 0, 30)
+TpSelLabel.Position = UDim2.new(0, 150, 0, 10)
+TpSelLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+TpSelLabel.Font = Enum.Font.GothamBold
+TpSelLabel.Text = "Seçili: Kimse Yok"
+TpSelLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+TpSelLabel.TextSize = 12
+Instance.new("UICorner", TpSelLabel).CornerRadius = UDim.new(0, 6)
+
+local PlayerTpBtn = Instance.new("TextButton", ContainerTP)
+PlayerTpBtn.Size = UDim2.new(0, 160, 0, 35)
+PlayerTpBtn.Position = UDim2.new(0, 150, 0, 50)
+PlayerTpBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+PlayerTpBtn.Font = Enum.Font.GothamBold
+PlayerTpBtn.Text = "OYUNCUYA TP"
+PlayerTpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerTpBtn.TextSize = 13
+Instance.new("UICorner", PlayerTpBtn).CornerRadius = UDim.new(0, 6)
+
+-- [[ DÜZELTİLEN TP GUN BUTONU ]]
+local GunTpBtn = Instance.new("TextButton", ContainerTP)
+GunTpBtn.Size = UDim2.new(0, 160, 0, 35)
+GunTpBtn.Position = UDim2.new(0, 150, 0, 100)
+GunTpBtn.BackgroundColor3 = Color3.fromRGB(130, 40, 200)
+GunTpBtn.Font = Enum.Font.GothamBold
+GunTpBtn.Text = "SİLAHA TP (GUN)"
+GunTpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GunTpBtn.TextSize = 13
+Instance.new("UICorner", GunTpBtn).CornerRadius = UDim.new(0, 6)
+
+-- DÜZELTME: Gelişmiş, Yere Sıkışmayan Silah Işınlayıcı Motoru
+GunTpBtn.MouseButton1Click:Connect(function()
+    -- Silahı doğrudan veya harita klasörlerinin içinde derinlemesine ara
+    local gunDrop = Workspace:FindFirstChild("GunDrop") or Workspace:FindFirstChild("GunDrop", true)
+    if not gunDrop then
+        for _, v in pairs(Workspace:GetDescendants()) do
+            if v.Name == "GunDrop" then gunDrop = v break end
+        end
+    end
+    
+    -- Eğer silah bulunduysa ve karakterimiz yaşıyorsa
+    if gunDrop and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        hrp.Velocity = Vector3.new(0, 0, 0) -- Hız ivmesini sıfırla (Geri fırlatmasın)
+        
+        -- Silah modelinin ana parçası varsa onun 3 birim yukarısına, yoksa pivotun 3 birim yukarısına güvenle ışınla
+        if gunDrop:IsA("Model") and gunDrop.PrimaryPart then
+            hrp.CFrame = gunDrop.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+        else
+            hrp.CFrame = gunDrop:GetPivot() + Vector3.new(0, 3, 0)
+        end
+    end
+end)
+
+local ArenaTpBtn = Instance.new("TextButton", ContainerTP)
+ArenaTpBtn.Size = UDim2.new(0, 160, 0, 35)
+ArenaTpBtn.Position = UDim2.new(0, 150, 0, 150)
+ArenaTpBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 0)
+ArenaTpBtn.Font = Enum.Font.GothamBold
+ArenaTpBtn.Text = "ARENAYA TP (GERİ DÖN)"
+ArenaTpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ArenaTpBtn.TextSize = 13
+Instance.new("UICorner", ArenaTpBtn).CornerRadius = UDim.new(0, 6)
+
+local function RefreshTpList()
+    for _, child in pairs(TpScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local btn = Instance.new("TextButton", TpScroll)
+            btn.Size = UDim2.new(1, -8, 0, 28)
+            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+            btn.Font = Enum.Font.Gotham
+            btn.Text = p.DisplayName
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.TextSize = 12
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            btn.MouseButton1Click:Connect(function()
+                SelectedTpPlayer = p
+                TpSelLabel.Text = "Seçili: " .. p.DisplayName
+            end)
+        end
+    end
+    TpScroll.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 32)
+end
+
+Players.PlayerAdded:Connect(RefreshTpList)
+Players.PlayerRemoving:Connect(RefreshTpList)
+RefreshTpList()
+
+PlayerTpBtn.MouseButton1Click:Connect(function()
+    if SelectedTpPlayer and SelectedTpPlayer.Character and SelectedTpPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedTpPlayer.Character.HumanoidRootPart.CFrame
+    end
+end)
+
+ArenaTpBtn.MouseButton1Click:Connect(function()
+    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+    local normal = Workspace:FindFirstChild("Normal")
+    if normal and normal:FindFirstChild("Map") then
+        myHrp.CFrame = normal.Map:GetPivot() + Vector3.new(0, 4, 0)
+        return
+    end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local role = GetPlayerRole(p)
+            if role == "Murderer" or role == "Sheriff" then
+                myHrp.CFrame = p.Character.HumanoidRootPart.CFrame + Vector3.new(0, 4, 0)
+                return
+            end
+        end
     end
 end)
 
